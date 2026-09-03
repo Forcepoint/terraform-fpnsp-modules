@@ -1,0 +1,147 @@
+# Example values for the gcp-engine module.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# terraform.tfvars is gitignored; this file is committed. Keep secrets out.
+#
+# tfvars take literal values only: file(), jsonencode() and base64encode() fail
+# with "Function calls not allowed". A heredoc is a literal, so it works. Pass
+# secrets and per-run values in instead:
+#
+#   terraform apply -var "initial_contact=$(cat engine.cfg)"
+#   export TF_VAR_initial_contact="$(cat engine.cfg)"
+#
+# Optional values are commented out, showing the module's own default.
+
+# --- Required ---
+
+name = "engine-a"
+
+# Every subnetwork below must be in this zone's region.
+zone = "europe-north1-a"
+
+# Interfaces in guest order. The first element is nic0, the management
+# interface. Put LAN before WAN. Each must attach to a different VPC
+# network. The shape mirrors the instance's network_interface block.
+network_interfaces = [
+  {
+    subnetwork = "projects/my-project/regions/europe-north1/subnetworks/mgmt"
+
+    # The module attaches the addresses you give it; it reserves none. For
+    # addresses that must survive an engine replacement, reserve them in
+    # your root module and pass their .address attributes:
+    #
+    #   network_ip    = google_compute_address.mgmt_internal.address
+    #   access_config = [{
+    #     nat_ip = google_compute_address.mgmt_external.address
+    #   }]
+
+    # An empty access_config takes an ephemeral external IP, released when
+    # the instance stops. Omit the block for no external IP at all.
+    # access_config = [{}]
+  },
+  {
+    subnetwork = "projects/my-project/regions/europe-north1/subnetworks/inside"
+  },
+  {
+    subnetwork = "projects/my-project/regions/europe-north1/subnetworks/outside"
+
+    # A reserved external address you own elsewhere:
+    # access_config = [{ nat_ip = "203.0.113.5", network_tier = "PREMIUM" }]
+  },
+]
+
+# --- Boot image ---
+
+# Must carry the MULTI_IP_SUBNET guest OS feature, or the engine forwards
+# nothing. A change to the image replaces the engine.
+boot_disk = {
+  initialize_params = {
+    image = "projects/my-project/global/images/engine-7-6-0"
+  }
+}
+
+# --- Placement ---
+
+# project_id = "my-project"
+
+# --- Machine shape ---
+
+# machine_type     = "n2-standard-4"
+# min_cpu_platform = "Intel Cascade Lake"
+
+# boot_disk also takes auto_delete, device_name, kms_key_self_link and
+# initialize_params.size / type / provisioned_iops / provisioned_throughput.
+
+# scheduling = {
+#   automatic_restart   = true
+#   on_host_maintenance = "MIGRATE"
+# }
+
+# --- Initial contact ---
+
+# An engine.cfg exported from the SMC. Prefer -var: the one-time password
+# expires, and this file is on disk.
+# initial_contact = <<-EOT
+#   stonegate/system/hostname string engine-a
+#   stonegate/system/type string fw
+#   stonegate/mgmt/management-address string 203.0.113.10
+#   stonegate/mgmt/nic-id string 0
+# EOT
+
+# Cloud initiated contact takes a JSON document in the same input, written out
+# by hand; jsonencode() is not available here.
+
+# initial_contact_replace_on_change = true
+
+# Installed for the engine's gencloud login. Whether SSH answers depends on the
+# engine's policy.
+# ssh_public_keys = [
+#   "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... me@example",
+# ]
+# block_project_ssh_keys = true
+
+# On by default: the GCP HA Module needs the endpoint for peer status
+# signalling. Settable only at creation.
+# enable_guest_attributes = true
+
+# The only way into an engine that never contacted the SMC.
+# enable_serial_console = true
+
+# Merged last; overrides computed keys.
+# metadata = {
+#   FP_HA_route_name       = "engine-protected-default"
+#   FP_HA_internal_nic_idx = "1"  # the LAN leg above is nic1
+# }
+
+# --- Identity ---
+
+# Needed for engine features that call Google APIs, such as HA failover.
+# service_account = {
+#   email  = "engine-ha@my-project.iam.gserviceaccount.com"
+#   scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+# }
+
+# --- Networking ---
+
+# can_ip_forward = true
+# network_tags   = ["engine"]
+
+# --- Load balancer backend ---
+
+# create_instance_group      = true
+# instance_group_name        = "engine-a-ig"
+# instance_group_named_ports = [
+#   { name = "http", port = 80 },
+# ]
+
+# --- Lifecycle ---
+
+# labels = {
+#   role        = "engine"
+#   environment = "production"
+# }
+
+# deletion_protection       = true
+# allow_stopping_for_update = true
+# resource_policies         = []

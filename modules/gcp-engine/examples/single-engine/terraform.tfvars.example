@@ -1,0 +1,67 @@
+# Example values: one engine with three interfaces, networks created.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# terraform.tfvars is gitignored; this file is committed. Keep secrets out.
+#
+# tfvars take literal values only, so file() and jsonencode() fail here. A
+# heredoc is a literal and works. Pass secrets and per-run values in instead:
+#
+#   terraform apply -var "initial_contact=$(cat engine.cfg)"
+
+# --- Required ---
+
+project_id = "my-project"
+
+# Must carry the MULTI_IP_SUBNET guest OS feature, or the engine forwards
+# nothing.
+image = "projects/my-project/global/images/engine-7-6-0"
+
+# Sources allowed to reach the management and WAN interfaces. Every protocol
+# and port is open from these ranges, so keep the list tight. No default: an
+# open management interface is not a sensible default for a firewall.
+allowed_cidrs = [
+  "198.51.100.10/32", # SMC
+  "198.51.100.20/32", # admin workstation
+  "203.0.113.5/32",   # VPN peer
+]
+
+# --- Optional ---
+
+# name = "engine"
+
+# The networks are created in this zone's region.
+# zone = "europe-north1-a"
+
+# machine_type = "n2-standard-4"
+
+# One subnetwork per interface, each in its own VPC network.
+# management_cidr = "10.0.0.0/24"    # nic0
+# lan_cidr        = "10.0.1.0/24"    # nic1
+# wan_cidr        = "10.0.100.0/24"  # nic2
+
+# Targeted by the firewall rules.
+# network_tag = "engine"
+
+# Selects which workloads route through the engine. The engine must not carry
+# it, or it routes its own SMC traffic through itself.
+# protected_network_tag = "protected"
+
+# The protected test server. Any Linux image will do; it only needs to
+# originate traffic. It has no public address, reach it over IAP.
+# server_image        = "debian-cloud/debian-12"
+# server_machine_type = "e2-small"
+# server_user         = "admin"
+
+# Installed for the engine's gencloud login, and for server_user on the server.
+# ssh_public_keys = [
+#   "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... me@example",
+# ]
+
+# Prefer -var; a short engine.cfg can be inlined as a heredoc.
+# initial_contact = <<-EOT
+#   stonegate/system/hostname string engine
+#   stonegate/system/type string fw
+#   stonegate/mgmt/management-address string 203.0.113.10
+#   stonegate/mgmt/nic-id string 0
+# EOT

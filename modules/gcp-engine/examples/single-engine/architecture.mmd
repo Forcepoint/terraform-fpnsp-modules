@@ -1,0 +1,35 @@
+%% Render with the gcp: icon pack, or the icons do not resolve. The white
+%% background is required: the text is dark grey, invisible on a transparent
+%% background in GitHub's dark mode.
+%%
+%%   npx @mermaid-js/mermaid-cli -i architecture.mmd \
+%%     -o architecture.png \
+%%     --iconPacksNamesAndUrls 'gcp#https://raw.githubusercontent.com/iconify/icon-sets/master/json/gcp.json' \
+%%     --backgroundColor white -s 2
+%%
+%% The gcp pack is loaded from GitHub raw because the default --iconPacks
+%% downloads it from unpkg, which may be unreachable.
+
+architecture-beta
+    group project(gcp:virtual-private-cloud)[GCP project]
+
+    group mgmtnet(gcp:cloud-network)[management network] in project
+    service nic0(gcp:compute-engine)[nic0 management] in mgmtnet
+
+    group lannet(gcp:cloud-network)[lan network] in project
+    service nic1(gcp:compute-engine)[nic1 lan] in lannet
+    service server(gcp:compute-engine)[protected server] in lannet
+
+    group wannet(gcp:cloud-network)[wan network] in project
+    service nic2(gcp:compute-engine)[nic2 wan] in wannet
+
+    service engine(gcp:network-security)[Security Engine] in project
+    service smc(internet)[SMC and admin]
+    service net(internet)[internet]
+
+    smc:R -- L:nic0
+    nic0:R -- L:engine
+    engine:R -- L:nic2
+    nic2:R -- L:net
+    engine:B -- T:nic1
+    nic1:B -- T:server
