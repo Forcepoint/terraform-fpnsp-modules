@@ -1,0 +1,73 @@
+# Example values: one engine with three interfaces, networks created.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# terraform.tfvars is gitignored; this file is committed. Keep secrets out.
+#
+# tfvars take literal values only, so file() and jsonencode() fail here. A
+# heredoc is a literal and works. Pass secrets and per-run values in instead:
+#
+#   terraform apply -var "initial_contact=$(cat engine.cfg)"
+
+# --- Required ---
+
+resource_group_name = "example-rg"
+
+# Sources allowed to reach the management and WAN interfaces. Every protocol
+# and port is open from these ranges, so keep the list tight. No default: an
+# open management interface is not a sensible default for a firewall.
+# Workload traffic to these ranges bypasses the engine, by default.
+allowed_cidrs = [
+  "198.51.100.10/32", # SMC
+  "198.51.100.20/32", # admin workstation
+  "203.0.113.5/32",   # VPN peer
+]
+
+# Public keys in OpenSSH format. Required: the module takes no password.
+ssh_public_keys = [
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... me@example",
+]
+
+# Prefer -var; a short engine.cfg can be inlined as a heredoc. The module
+# base64-encodes it for Azure custom data; pass the plain document.
+# initial_contact = <<-EOT
+#   stonegate/system/hostname string engine
+#   stonegate/system/type string fw
+#   stonegate/mgmt/management-address string 203.0.113.10
+#   stonegate/mgmt/nic-id string 0
+# EOT
+
+# --- Optional ---
+
+# name = "example"
+
+# The networks are created in this location.
+# location = "westeurope"
+
+# See the template's marketplace listing for the sizes it supports.
+# size = "Standard_B4ms"
+
+# engine_image_version = "7.3.5"
+
+# admin_username = "azure"
+
+# One subnet per interface.
+# vnet_cidr         = "10.0.0.0/16"
+# management_cidr   = "10.0.0.0/24"   # nic0
+# lan_cidr          = "10.0.1.0/24"   # nic1
+# wan_cidr          = "10.0.100.0/24" # nic2
+
+# Azure Bastion, the access path that survives an engine outage. It bills
+# from deployment.
+# enable_bastion      = true
+# Azure requires a minimum of /26 and a fixed subnet name.
+# bastion_subnet_cidr = "10.0.200.0/26"
+
+# Bypass the engine for the workloads' traffic to the allowed CIDRs, so the
+# workloads stay reachable from there when the engine is down. On by
+# default.
+# enable_control_bypass = false
+
+# The protected test server.
+# server_user         = "azureuser"
+# server_machine_type = "Standard_B1s"

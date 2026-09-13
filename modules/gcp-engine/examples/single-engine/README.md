@@ -63,7 +63,7 @@ The engine image is imported first; the gcloud command is in the
 | `lan_cidr`                            | CIDR of the LAN subnetwork (`nic1`), where protected workloads live.                                            | `string`       | `"10.0.1.0/24"`            | no       |
 | `machine_type`                        | Machine type for the engine. GCP requires at least one vCPU per interface.                                      | `string`       | `"n2-standard-4"`          | no       |
 | `management_cidr`                     | CIDR of the management subnetwork (`nic0`).                                                                     | `string`       | `"10.0.0.0/24"`            | no       |
-| `name`                                | Name of the engine instance, and prefix for every other resource.                                               | `string`       | `"engine"`                 | no       |
+| `name`                                | Name of the engine instance, and prefix for every other resource.                                               | `string`       | `"example"`                | no       |
 | `network_tag`                         | Network tag on the engine. Targeted by the VPC firewall rules.                                                  | `string`       | `"engine"`                 | no       |
 | `project_id`                          | Project to deploy into.                                                                                         | `string`       | n/a                        | **yes**  |
 | `protected_network_tag`               | Tag selecting which LAN instances route through the engine. The engine must not carry it.                       | `string`       | `"protected"`              | no       |

@@ -16,7 +16,7 @@ variable "name" {
     Name prefix for every resource, and the name of the engine instance.
   EOT
   type        = string
-  default     = "engine"
+  default     = "example"
 }
 
 variable "image" {

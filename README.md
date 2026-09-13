@@ -3,10 +3,11 @@
 Terraform modules for deploying Forcepoint Network Security Platform on public
 cloud providers.
 
-| Module                             | Deploys                                   |
-|------------------------------------|-------------------------------------------|
-| [`gcp-engine`](modules/gcp-engine) | Security Engine on Google Cloud           |
-| [`aws-smc`](modules/aws-smc)       | Security Management Center servers on AWS |
+| Module                                 | Deploys                                   |
+|----------------------------------------|-------------------------------------------|
+| [`gcp-engine`](modules/gcp-engine)     | Security Engine on Google Cloud           |
+| [`azure-engine`](modules/azure-engine) | Security Engine on Azure                  |
+| [`aws-smc`](modules/aws-smc)           | Security Management Center servers on AWS |
 
 Each module documents its own inputs, outputs and examples. Start from the
 module's README and its `examples/` directory.

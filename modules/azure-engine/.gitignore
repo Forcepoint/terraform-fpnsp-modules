@@ -1,0 +1,35 @@
+# Local Terraform state and provider caches
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.*
+crash.log
+crash.*.log
+
+# Variable files carry API keys and initial contact data. The committed
+# *.tfvars.example templates are the exception.
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# Plan output is a full snapshot of the configuration, secrets included
+*.tfplan
+plan.out
+
+# Initial contact data and keys
+*.cfg
+!.*.cfg
+engine.cfg
+*.pem
+*.key
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+
+# Python bytecode from tools/
+__pycache__/
+*.pyc

@@ -1,0 +1,30 @@
+%% Render with the Azure: icon pack, or the icons do not resolve. The white
+%% background is required: the text is dark grey, invisible on a transparent
+%% background in GitHub's dark mode.
+%%
+%%   npx @mermaid-js/mermaid-cli -i architecture.mmd \
+%%     -o architecture.png \
+%%     --iconPacksNamesAndUrls 'Azure#https://raw.githubusercontent.com/NakayamaKento/AzureIcons/refs/heads/main/icons.json' \
+%%     --backgroundColor white -s 2
+%%
+%% The Azure pack is loaded from GitHub raw because the default --iconPacks
+%% downloads it from unpkg, which may be unreachable.
+
+architecture-beta
+    service smc(internet)[SMC and admin]
+    service net(internet)[internet]
+
+    group rg(Azure:resource-groups)[resource group]
+    service pip(Azure:public-ip-addresses)[WAN public IP] in rg
+
+    group vnet(Azure:virtual-networks)[virtual network] in rg
+    service engine(Azure:virtual-machine)[Security Engine] in vnet
+    service rt(Azure:route-tables)[route table] in vnet
+    group lansubnet(Azure:subnet)[lan subnet] in vnet
+    service server(Azure:virtual-machine)[protected server] in lansubnet
+
+    smc:B -- L:engine
+    net:B -- T:pip
+    pip:B -- T:engine
+    engine:B -- T:rt
+    rt:B -- L:server

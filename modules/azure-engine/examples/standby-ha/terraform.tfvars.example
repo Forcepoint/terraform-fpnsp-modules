@@ -1,0 +1,89 @@
+# Example values: a standby HA pair of engines and two protected servers,
+# networks created.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# terraform.tfvars is gitignored; this file is committed. Keep secrets out.
+#
+# tfvars take literal values only, so file() and jsonencode() fail here. A
+# heredoc is a literal and works. Pass secrets and per-run values in instead:
+#
+#   terraform apply \
+#     -var "initial_contact_primary=$(cat engine-primary.cfg)" \
+#     -var "initial_contact_secondary=$(cat engine-secondary.cfg)"
+
+# --- Required ---
+
+resource_group_name = "example-rg"
+
+# Sources allowed to reach the engines' management interfaces and to open
+# SSH to the servers. With the control bypass enabled, their traffic to
+# these ranges also keeps flowing when an engine is down. Keep the list
+# tight.
+allowed_cidrs = [
+  "198.51.100.10/32", # SMC
+  "198.51.100.20/32", # admin workstation
+]
+
+# Public keys in OpenSSH format, installed on the engines and the servers.
+ssh_public_keys = [
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... me@example",
+]
+
+# Initial contact data, one document per engine: an engine.cfg exported
+# from the SMC, or a cloud contact JSON document. Prefer -var.
+# initial_contact_primary   = <<-EOT
+#   stonegate/system/hostname string example-primary
+#   ...
+# EOT
+# initial_contact_secondary = <<-EOT
+#   stonegate/system/hostname string example-secondary
+#   ...
+# EOT
+
+# --- Optional ---
+
+# Name prefix; the engines are <name>-primary and <name>-secondary.
+# name = "example"
+
+# The networks are created in this location.
+# location = "westeurope"
+
+# resource_group_tags = {
+#   environment = "test"
+# }
+
+# See the template's marketplace listing for the sizes it supports.
+# size = "Standard_B4ms"
+
+# engine_image_version = "7.3.5"
+
+# admin_username = "azure"
+
+# The pair spans two availability zones.
+# zone_primary   = 1
+# zone_secondary = 2
+
+# Hub virtual network and the engines' subnets. The engines pin hosts 10
+# through 15 of the WAN subnet, so it must be /27 or larger.
+# hub_vnet_cidr   = "10.0.0.0/16"
+# management_cidr = "10.0.0.0/24"   # nic0
+# lan_cidr        = "10.0.1.0/24"   # nic1
+# wan_cidr        = "10.0.100.0/24" # nic2
+
+# The servers' virtual network: one vnet, one subnet per server, one
+# shared route table.
+# spoke_vnet_cidr     = "10.1.0.0/16"
+# spoke_a_subnet_cidr = "10.1.0.0/24"
+# spoke_b_subnet_cidr = "10.1.1.0/24"
+
+# Bypass the engines for the servers' traffic to the allowed CIDRs, so the
+# servers stay reachable from there when an engine is down. On by default.
+# enable_control_bypass = false
+
+# The failover identity and its resource-group-scoped role.
+# enable_ha_identity = false
+
+# The protected servers.
+# server_user         = "azureuser"
+# server_machine_type = "Standard_B1s"

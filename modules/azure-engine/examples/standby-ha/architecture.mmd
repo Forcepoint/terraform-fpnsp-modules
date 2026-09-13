@@ -1,0 +1,48 @@
+%% Render with the Azure: icon pack, or the icons do not resolve. The white
+%% background is required: the text is dark grey, invisible on a transparent
+%% background in GitHub's dark mode.
+%%
+%%   npx @mermaid-js/mermaid-cli -i architecture.mmd \
+%%     -o architecture.png \
+%%     --iconPacksNamesAndUrls 'Azure#https://raw.githubusercontent.com/NakayamaKento/AzureIcons/refs/heads/main/icons.json' \
+%%     --backgroundColor white -s 2
+%%
+%% The Azure pack is loaded from GitHub raw because the default --iconPacks
+%% downloads it from unpkg, which may be unreachable.
+
+architecture-beta
+    service smc(internet)[SMC and admin]
+    junction smcleft
+    junction smcright
+    service net(internet)[internet]
+
+    group rg(Azure:resource-groups)[resource group]
+    service pips(Azure:public-ip-addresses)[reserved public IPs] in rg
+    junction pipjunction in rg
+
+    group hub(Azure:virtual-networks)[hub vnet] in rg
+    service primary(Azure:virtual-machine)[engine primary zone 1] in hub
+    service secondary(Azure:virtual-machine)[engine secondary zone 2] in hub
+
+    group spoke(Azure:virtual-networks)[spoke vnet] in rg
+    service rt(Azure:route-tables)[route table] in spoke
+    junction rtjunction in spoke
+    group subneta(Azure:subnet)[server a subnet] in spoke
+    service servera(Azure:virtual-machine)[server a] in subneta
+    group subnetb(Azure:subnet)[server b subnet] in spoke
+    service serverb(Azure:virtual-machine)[server b] in subnetb
+
+    smc:B -- T:smcleft
+    smcleft:R -- L:smcright
+    smcleft:B -- L:primary
+    smcright:B -- R:secondary
+    net:B -- T:pips
+    pips:B -- T:pipjunction
+    pipjunction:L -- T:primary
+    pipjunction:R -- T:secondary
+    primary:R -- L:secondary
+    primary:B -- L:rt
+    secondary:B -- R:rt
+    rt:B -- T:rtjunction
+    rtjunction:L -- R:servera
+    rtjunction:R -- L:serverb

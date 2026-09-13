@@ -1,0 +1,180 @@
+# Example values for the azure-engine module.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# terraform.tfvars is gitignored; this file is committed. Keep secrets out.
+#
+# tfvars take literal values only: file(), jsonencode() and base64encode()
+# fail with "Function calls not allowed". A heredoc is a literal, so it
+# works. Pass secrets and per-run values in instead:
+#
+#   terraform apply -var "initial_contact=$(cat engine.cfg)"
+#   export TF_VAR_initial_contact="$(cat engine.cfg)"
+#
+# Optional values are commented out, showing the module's own default.
+
+# --- Required ---
+
+name = "engine-a"
+
+resource_group_name = "engine-rg"
+
+location = "westeurope"
+
+# For example Standard_B4ms. See the template's marketplace listing for the
+# sizes it supports.
+size = "Standard_B4ms"
+
+# Public keys in OpenSSH format, installed for admin_username at first boot.
+ssh_public_keys = [
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... me@example",
+]
+
+# Interfaces in guest order. The first element is nic0, the management
+# interface. Put LAN before WAN. Each element mirrors the provider's
+# azurerm_network_interface arguments: the interface's arguments and one or
+# more ip_configuration blocks. Each interface must attach to a different
+# subnet, every one in the module's location.
+network_interfaces = [
+  {
+    # The module attaches the addresses you give it; it reserves none. Pin
+    # the private address, so the SMC interface definitions keep working
+    # across replacements.
+    ip_configuration = [
+      {
+        subnet_id                     = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet/subnets/mgmt"
+        private_ip_address_allocation = "Static"
+        private_ip_address            = "10.0.0.10"
+        public_ip                     = {}
+      },
+    ]
+  },
+  {
+    ip_configuration = [
+      {
+        subnet_id                     = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet/subnets/lan"
+        private_ip_address_allocation = "Static"
+        private_ip_address            = "10.0.1.10"
+      },
+    ]
+  },
+  {
+    ip_configuration = [
+      {
+        subnet_id                     = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Network/virtualNetworks/vnet/subnets/wan"
+        private_ip_address_allocation = "Static"
+        private_ip_address            = "10.0.100.10"
+        public_ip = {
+          # Every attribute of the public IP the module creates is settable:
+          # name, allocation_method, sku, ip_version, zone, domain_name_label,
+          # idle_timeout_in_minutes, ddos_protection_plan_id.
+          domain_name_label = "engine-a"
+        }
+      },
+    ]
+  },
+]
+
+# Additional ip_configuration blocks on the same interface are secondary
+# private addresses on the same guest interface, in the same subnet. Each
+# can carry its own public IP.
+#   ip_configuration = [
+#     {
+#       primary                       = true
+#       subnet_id                     = ".../subnets/wan"
+#       private_ip_address_allocation = "Static"
+#       private_ip_address            = "10.0.100.10"
+#     },
+#     {
+#       subnet_id                     = ".../subnets/wan"
+#       private_ip_address_allocation = "Static"
+#       private_ip_address            = "10.0.100.12"
+#       public_ip                     = {}
+#     },
+#   ]
+
+# Or attach an existing public IP to an ip_configuration instead of creating
+# one:
+#   public_ip_address_id = "/subscriptions/00000000-.../publicIPAddresses/mine"
+
+# --- Boot image ---
+
+# The Forcepoint template from the Azure Marketplace, the default. The
+# subscription must have accepted the offer's terms; see the README. A
+# change to the template (publisher, offer, sku or version) replaces the
+# engine.
+# source_image = {}
+#
+# Another template version:
+# source_image = { version = "7.5.1" }
+#
+# Or boot from a custom image, community image or shared gallery image
+# instead of the template:
+# source_image = {
+#   image_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Compute/images/engine-7-5-1"
+# }
+
+# --- Machine shape ---
+
+# zone = 1
+
+# admin_username = "azure"
+
+# os_disk = {
+#   caching                = "ReadWrite"
+#   disk_size_gb           = 128
+#   storage_account_type   = "StandardSSD_LRS"
+#   disk_encryption_set_id = null
+# }
+
+# The remaining virtual machine attributes; null (or the default) leaves
+# the platform default in place.
+
+# computer_name = "engine-a.example.com"
+
+# Managed service identity, for example for the HA failover script.
+# identity = {
+#   type = "UserAssigned"
+#   identity_ids = ["/subscriptions/00000000-.../userAssignedIdentities/hafailover"]
+# }
+
+# Boot diagnostics are on by default, using a managed storage account.
+# boot_diagnostics = {
+#   enabled             = true
+#   storage_account_uri = "https://stgacct.blob.core.windows.net"
+# }
+
+# Spot engines are for networks that can tolerate eviction.
+# priority        = "Spot"
+# eviction_policy = "Deallocate"
+# max_bid_price   = 0.5
+
+# Placement: an availability set and an availability zone are mutually
+# exclusive, as are an availability set and a capacity reservation group,
+# and a dedicated host and a dedicated host group.
+# availability_set_id            = "/subscriptions/00000000-.../availabilitySets/as1"
+# capacity_reservation_group_id  = "/subscriptions/00000000-.../capacityReservationGroups/crg1"
+# dedicated_host_id              = "/subscriptions/00000000-.../hostGroups/host-group1/hosts/host1"
+# dedicated_host_group_id        = "/subscriptions/00000000-.../hostGroups/host-group1"
+# disk_controller_type           = "NVMe"
+
+# --- Initial contact ---
+
+# An engine.cfg exported from the SMC. Prefer -var: the one-time password
+# expires, and this file is on disk. The module base64-encodes the value
+# for Azure custom data; pass the plain document, never a pre-encoded one.
+# initial_contact = <<-EOT
+#   stonegate/system/hostname string engine-a
+#   stonegate/system/type string fw
+#   stonegate/mgmt/management-address string 203.0.113.10
+#   stonegate/mgmt/nic-id string 0
+# EOT
+
+# Cloud initiated contact takes a JSON document in the same input, written
+# out by hand; jsonencode() is not available here.
+
+# --- Lifecycle ---
+
+# tags = {
+#   environment = "production"
+# }

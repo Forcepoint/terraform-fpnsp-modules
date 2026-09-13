@@ -28,7 +28,7 @@ allowed_cidrs = [
 
 # --- Optional ---
 
-# name = "engine"
+# name = "example"
 
 # The networks are created in this zone's region.
 # zone = "europe-north1-a"
