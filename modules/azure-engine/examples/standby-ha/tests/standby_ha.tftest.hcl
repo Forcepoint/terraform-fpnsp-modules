@@ -36,6 +36,39 @@ run "the_pair_spans_two_zones" {
   }
 }
 
+run "the_payg_plan_reaches_both_engines" {
+  command = plan
+
+  # Set rather than defaulted: terraform test also reads a local
+  # terraform.tfvars, which may choose the BYOL plan.
+  variables {
+    engine_image_sku = "ngfw_payg"
+  }
+
+  assert {
+    condition     = module.primary.instance.plan[0].name == "ngfw_payg" && module.secondary.instance.plan[0].name == "ngfw_payg"
+    error_message = "The pay-as-you-go plan must reach both engines."
+  }
+}
+
+run "the_byol_plan_reaches_both_engines" {
+  command = plan
+
+  variables {
+    engine_image_sku = "ngfw_byol"
+  }
+
+  assert {
+    condition     = module.primary.instance.plan[0].name == "ngfw_byol" && module.secondary.instance.plan[0].name == "ngfw_byol"
+    error_message = "The chosen plan must reach both engines' plans."
+  }
+
+  assert {
+    condition     = module.primary.instance.source_image_reference[0].sku == "ngfw_byol" && module.secondary.instance.source_image_reference[0].sku == "ngfw_byol"
+    error_message = "The chosen plan must reach both engines' images."
+  }
+}
+
 run "the_wan_interface_carries_the_secondary_configurations" {
   command = plan
 
@@ -120,6 +153,34 @@ run "the_reserved_public_ips_are_created" {
   }
 }
 
+run "each_engine_has_its_own_wan_public_ip" {
+  command = plan
+
+  variables {
+    wan_floating_ip = false
+  }
+
+  assert {
+    condition     = length(azurerm_public_ip.ha) == 0
+    error_message = "With a public IP per engine, no address floats."
+  }
+
+  assert {
+    condition     = keys(module.primary.public_ips) == ["nic0", "nic2"] && keys(module.secondary.public_ips) == ["nic0", "nic2"]
+    error_message = "The WAN interface must carry the engine's own public IP."
+  }
+
+  assert {
+    condition     = length(module.primary.network_interfaces["nic2"].ip_configurations) == 1 && length(module.secondary.network_interfaces["nic2"].ip_configurations) == 1
+    error_message = "Without the DNAT addresses, the WAN interface needs no secondary configurations."
+  }
+
+  assert {
+    condition     = length([for key in keys(local.ha_tags) : key if startswith(key, "FP_HA_reserved_public_ip_")]) == 0 && length(local.ha_tags) == 5
+    error_message = "With nothing to move but the route, the script must get no reserved public IP."
+  }
+}
+
 run "the_servers_egress_through_the_primary_engine" {
   command = plan
 
@@ -136,25 +197,31 @@ run "the_servers_egress_through_the_primary_engine" {
   }
 }
 
-run "the_servers_keep_a_bypass_to_the_allowed_cidrs" {
-  command = plan
-
-  assert {
-    condition     = alltrue([for cidr in var.allowed_cidrs : contains([for route in azurerm_route_table.spoke.route : route.address_prefix if route.next_hop_type == "Internet"], cidr)])
-    error_message = "Each allowed CIDR needs its own bypass route to the internet next hop."
-  }
-}
-
-run "the_control_bypass_is_optional" {
+run "the_control_bypass_cidrs_bypass_the_engines" {
   command = plan
 
   variables {
-    enable_control_bypass = false
+    control_bypass_cidrs = ["198.51.100.20/32"]
+  }
+
+  assert {
+    condition     = [for route in azurerm_route_table.spoke.route : route.address_prefix if route.next_hop_type == "Internet"] == ["198.51.100.20/32"]
+    error_message = "Only the control bypass CIDRs may go around the engines."
+  }
+}
+
+run "no_route_bypasses_the_engines_without_control_bypass_cidrs" {
+  command = plan
+
+  # Set rather than defaulted: terraform test also reads a local
+  # terraform.tfvars, which may list control bypass CIDRs.
+  variables {
+    control_bypass_cidrs = []
   }
 
   assert {
     condition     = length([for route in azurerm_route_table.spoke.route : route if route.next_hop_type == "Internet"]) == 0
-    error_message = "With the control bypass off, no route may go around the engines."
+    error_message = "Without control bypass CIDRs, no route may go around the engines."
   }
 }
 
@@ -172,22 +239,28 @@ run "the_wan_is_open_and_the_management_is_not" {
   }
 
   assert {
-    condition     = [for rule in azurerm_network_security_group.server_a.security_rule : rule if rule.name == "allow-ssh"][0].destination_port_range == "22"
-    error_message = "The servers are reachable over SSH only."
+    condition     = alltrue([for nsg in [azurerm_network_security_group.server_a, azurerm_network_security_group.server_b] : [for rule in nsg.security_rule : rule if rule.name == "allow-admins-and-peers"][0].protocol == "*"])
+    error_message = "The servers accept any protocol from the allowed CIDRs, so VPN peer sites reach them."
   }
 }
 
 run "the_failover_tags_reach_the_engines" {
   command = plan
 
-  # The tag values carry resource IDs, which the mock provider cannot
+  # Most tag values carry resource IDs, which the mock provider cannot
   # know at plan, and sensitivity propagates through the comparison, so
   # the handover is asserted on its size and the reach onto the engines
-  # on the tags map's presence. The script's probe settings take its
-  # defaults and are not part of the handover.
+  # on the tags map's presence. The probe address is known at plan. The
+  # script's other probe settings take its defaults and are not part of
+  # the handover.
   assert {
-    condition     = length(local.ha_tags) == 7
-    error_message = "The handover carries the failover script's tags: the route table, the internal NIC index, both instances and the three reserved public IPs."
+    condition     = length(local.ha_tags) == 8
+    error_message = "The handover carries the failover script's tags: the route table, the internal NIC index, both instances, the three reserved public IPs and the probe address."
+  }
+
+  assert {
+    condition     = local.ha_tags.FP_HA_probe_ip == cidrhost(var.lan_cidr, 10)
+    error_message = "The secondary must probe the primary's LAN address."
   }
 
   assert {

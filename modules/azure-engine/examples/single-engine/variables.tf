@@ -30,6 +30,15 @@ variable "size" {
   default     = "Standard_B4ms"
 }
 
+variable "engine_image_sku" {
+  description = <<-EOT
+    Marketplace plan the engine boots from: `ngfw_payg` (pay-as-you-go) or
+    `ngfw_byol` (bring your own license).
+  EOT
+  type        = string
+  default     = "ngfw_payg"
+}
+
 variable "engine_image_version" {
   description = <<-EOT
     Template version the engine boots from, for example `7.5.1`.
@@ -88,10 +97,10 @@ variable "bastion_subnet_cidr" {
   }
 }
 
-variable "enable_control_bypass" {
-  description = "Route the workloads' traffic to `allowed_cidrs` around the engine, so the workloads stay reachable from those ranges when the engine is down."
-  type        = bool
-  default     = true
+variable "control_bypass_cidrs" {
+  description = "Public CIDRs the workloads' traffic reaches around the engine, through the internet next hop, so the workloads stay reachable from them when the engine is down."
+  type        = list(string)
+  default     = []
 }
 
 variable "allowed_cidrs" {
@@ -99,9 +108,7 @@ variable "allowed_cidrs" {
     Source ranges permitted to reach the management and WAN interfaces: the
     SMC, your administrative networks and any VPN peer the engine terminates.
     Every protocol and port is allowed from these ranges, so keep the list
-    tight. Never `0.0.0.0/0`. By default, workload traffic to these ranges
-    bypasses the engine, so the workloads stay reachable from them when the
-    engine is down.
+    tight. Never `0.0.0.0/0`.
   EOT
   type        = list(string)
 }

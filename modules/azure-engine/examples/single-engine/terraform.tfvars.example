@@ -16,7 +16,6 @@ resource_group_name = "example-rg"
 # Sources allowed to reach the management and WAN interfaces. Every protocol
 # and port is open from these ranges, so keep the list tight. No default: an
 # open management interface is not a sensible default for a firewall.
-# Workload traffic to these ranges bypasses the engine, by default.
 allowed_cidrs = [
   "198.51.100.10/32", # SMC
   "198.51.100.20/32", # admin workstation
@@ -47,6 +46,10 @@ ssh_public_keys = [
 # See the template's marketplace listing for the sizes it supports.
 # size = "Standard_B4ms"
 
+# Pay-as-you-go by default. Uncomment to bring your own license instead;
+# accept the ngfw_byol plan's terms first, see the README.
+# engine_image_sku = "ngfw_byol"
+
 # engine_image_version = "7.3.5"
 
 # admin_username = "azure"
@@ -63,10 +66,9 @@ ssh_public_keys = [
 # Azure requires a minimum of /26 and a fixed subnet name.
 # bastion_subnet_cidr = "10.0.200.0/26"
 
-# Bypass the engine for the workloads' traffic to the allowed CIDRs, so the
-# workloads stay reachable from there when the engine is down. On by
-# default.
-# enable_control_bypass = false
+# Bypass the engine for the workloads' traffic to these ranges, so the
+# workloads stay reachable from there when the engine is down.
+# control_bypass_cidrs = ["198.51.100.20/32"]
 
 # The protected test server.
 # server_user         = "azureuser"

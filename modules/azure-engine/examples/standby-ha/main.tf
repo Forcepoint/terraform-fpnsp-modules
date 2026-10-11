@@ -40,14 +40,53 @@ locals {
 
   # Read by the failover script. A reserved public IP is
   # `public address,primary private address,secondary private address`.
-  ha_tags = {
-    FP_HA_route_table_id          = azurerm_route_table.spoke.id
-    FP_HA_internal_nic_idx        = "1"
-    FP_HA_primary_instance_id     = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.this.name}/providers/Microsoft.Compute/virtualMachines/${var.name}-primary"
-    FP_HA_secondary_instance_id   = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.this.name}/providers/Microsoft.Compute/virtualMachines/${var.name}-secondary"
-    FP_HA_reserved_public_ip_vpn  = "${azurerm_public_ip.ha["vpn"].ip_address},${local.addresses.primary.wan},${local.addresses.secondary.wan}"
-    FP_HA_reserved_public_ip_weba = "${azurerm_public_ip.ha["weba"].ip_address},${local.addresses.primary.wan_weba},${local.addresses.secondary.wan_weba}"
-    FP_HA_reserved_public_ip_webb = "${azurerm_public_ip.ha["webb"].ip_address},${local.addresses.primary.wan_webb},${local.addresses.secondary.wan_webb}"
+  # Without the floating IPs, the script moves the route only.
+  ha_tags = merge(
+    {
+      FP_HA_route_table_id        = azurerm_route_table.spoke.id
+      FP_HA_internal_nic_idx      = "1"
+      FP_HA_primary_instance_id   = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.this.name}/providers/Microsoft.Compute/virtualMachines/${var.name}-primary"
+      FP_HA_secondary_instance_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.this.name}/providers/Microsoft.Compute/virtualMachines/${var.name}-secondary"
+      FP_HA_probe_ip              = local.addresses.primary.lan
+    },
+    var.wan_floating_ip ? {
+      FP_HA_reserved_public_ip_vpn  = "${azurerm_public_ip.ha["vpn"].ip_address},${local.addresses.primary.wan},${local.addresses.secondary.wan}"
+      FP_HA_reserved_public_ip_weba = "${azurerm_public_ip.ha["weba"].ip_address},${local.addresses.primary.wan_weba},${local.addresses.secondary.wan_weba}"
+      FP_HA_reserved_public_ip_webb = "${azurerm_public_ip.ha["webb"].ip_address},${local.addresses.primary.wan_webb},${local.addresses.secondary.wan_webb}"
+    } : {},
+  )
+
+  # The WAN interface's configurations. With the floating IPs, the `weba`
+  # and `webb` configurations carry the DNAT addresses. Without them, the
+  # primary configuration takes a module-created public IP of its own.
+  wan_ip_configuration = {
+    for engine in ["primary", "secondary"] : engine => concat(
+      [
+        {
+          primary                       = true
+          subnet_id                     = azurerm_subnet.hub["wan"].id
+          private_ip_address_allocation = "Static"
+          private_ip_address            = local.addresses[engine].wan
+          public_ip                     = var.wan_floating_ip ? null : {}
+        },
+      ],
+      var.wan_floating_ip ? [
+        {
+          name                          = "ip-wan-2"
+          subnet_id                     = azurerm_subnet.hub["wan"].id
+          private_ip_address_allocation = "Static"
+          private_ip_address            = local.addresses[engine].wan_weba
+          public_ip                     = null
+        },
+        {
+          name                          = "ip-wan-3"
+          subnet_id                     = azurerm_subnet.hub["wan"].id
+          private_ip_address_allocation = "Static"
+          private_ip_address            = local.addresses[engine].wan_webb
+          public_ip                     = null
+        },
+      ] : [],
+    )
   }
 
   # The role assignment's name must be a UUID.
@@ -248,13 +287,13 @@ resource "azurerm_network_security_group" "server_a" {
   resource_group_name = azurerm_resource_group.this.name
 
   security_rule {
-    name                       = "allow-ssh"
+    name                       = "allow-admins-and-peers"
     priority                   = 1000
     direction                  = "Inbound"
     access                     = "Allow"
-    protocol                   = "Tcp"
+    protocol                   = "*"
     source_port_range          = "*"
-    destination_port_range     = "22"
+    destination_port_range     = "*"
     source_address_prefixes    = var.allowed_cidrs
     destination_address_prefix = "*"
   }
@@ -291,13 +330,13 @@ resource "azurerm_network_security_group" "server_b" {
   resource_group_name = azurerm_resource_group.this.name
 
   security_rule {
-    name                       = "allow-ssh"
+    name                       = "allow-admins-and-peers"
     priority                   = 1000
     direction                  = "Inbound"
     access                     = "Allow"
-    protocol                   = "Tcp"
+    protocol                   = "*"
     source_port_range          = "*"
-    destination_port_range     = "22"
+    destination_port_range     = "*"
     source_address_prefixes    = var.allowed_cidrs
     destination_address_prefix = "*"
   }
@@ -371,10 +410,10 @@ resource "azurerm_route_table" "spoke" {
   }
 
   dynamic "route" {
-    for_each = var.enable_control_bypass ? var.allowed_cidrs : []
+    for_each = var.control_bypass_cidrs
 
     content {
-      name           = "to-allowed-${replace(route.value, "/", "-")}"
+      name           = "bypass-${replace(route.value, "/", "-")}"
       address_prefix = route.value
       next_hop_type  = "Internet"
     }
@@ -392,9 +431,11 @@ resource "azurerm_subnet_route_table_association" "spoke" {
 
 # Left unattached: the failover script attaches each to the active engine's
 # WAN interface. Zone-redundant, as the engines sit in different zones.
+# Without the floating IPs, there are none: each engine's WAN interface
+# gets a public IP of its own from the module, as it does not move.
 
 resource "azurerm_public_ip" "ha" {
-  for_each = toset(["vpn", "weba", "webb"])
+  for_each = var.wan_floating_ip ? toset(["vpn", "weba", "webb"]) : toset([])
 
   name                = "${var.name}-ha-${each.value}-pip"
   resource_group_name = azurerm_resource_group.this.name
@@ -460,7 +501,10 @@ module "primary" {
   size                = var.size
   zone                = var.zone_primary
 
-  source_image = { version = var.engine_image_version }
+  source_image = {
+    sku     = var.engine_image_sku
+    version = var.engine_image_version
+  }
 
   network_interfaces = [
     {
@@ -485,26 +529,7 @@ module "primary" {
       ]
     },
     {
-      ip_configuration = [
-        {
-          primary                       = true
-          subnet_id                     = azurerm_subnet.hub["wan"].id
-          private_ip_address_allocation = "Static"
-          private_ip_address            = local.addresses.primary.wan
-        },
-        {
-          name                          = "ip-wan-2"
-          subnet_id                     = azurerm_subnet.hub["wan"].id
-          private_ip_address_allocation = "Static"
-          private_ip_address            = local.addresses.primary.wan_weba
-        },
-        {
-          name                          = "ip-wan-3"
-          subnet_id                     = azurerm_subnet.hub["wan"].id
-          private_ip_address_allocation = "Static"
-          private_ip_address            = local.addresses.primary.wan_webb
-        },
-      ]
+      ip_configuration = local.wan_ip_configuration.primary
     },
   ]
 
@@ -532,7 +557,10 @@ module "secondary" {
   size                = var.size
   zone                = var.zone_secondary
 
-  source_image = { version = var.engine_image_version }
+  source_image = {
+    sku     = var.engine_image_sku
+    version = var.engine_image_version
+  }
 
   network_interfaces = [
     {
@@ -557,26 +585,7 @@ module "secondary" {
       ]
     },
     {
-      ip_configuration = [
-        {
-          primary                       = true
-          subnet_id                     = azurerm_subnet.hub["wan"].id
-          private_ip_address_allocation = "Static"
-          private_ip_address            = local.addresses.secondary.wan
-        },
-        {
-          name                          = "ip-wan-2"
-          subnet_id                     = azurerm_subnet.hub["wan"].id
-          private_ip_address_allocation = "Static"
-          private_ip_address            = local.addresses.secondary.wan_weba
-        },
-        {
-          name                          = "ip-wan-3"
-          subnet_id                     = azurerm_subnet.hub["wan"].id
-          private_ip_address_allocation = "Static"
-          private_ip_address            = local.addresses.secondary.wan_webb
-        },
-      ]
+      ip_configuration = local.wan_ip_configuration.secondary
     },
   ]
 

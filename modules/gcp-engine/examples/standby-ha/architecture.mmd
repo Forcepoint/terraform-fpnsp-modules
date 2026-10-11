@@ -1,0 +1,59 @@
+%% Render with the gcp: icon pack, or the icons do not resolve. The white
+%% background is required: the text is dark grey, invisible on a transparent
+%% background in GitHub's dark mode.
+%%
+%%   npx @mermaid-js/mermaid-cli -i architecture.mmd \
+%%     -o architecture.png \
+%%     --iconPacksNamesAndUrls 'gcp#https://raw.githubusercontent.com/iconify/icon-sets/master/json/gcp.json' \
+%%     --backgroundColor white -s 1
+%%
+%% The gcp pack is loaded from GitHub raw because the default --iconPacks
+%% downloads it from unpkg, which may be unreachable.
+%%
+%% The engines are the centre piece: the external (wan) network on top, the
+%% protected (lan) network below. The management network is left out; the
+%% SMC lines stand for the engines' management interfaces.
+%%
+%% Each engine has an interface in both networks, which makes the graph
+%% cyclic. Mermaid 12 scrambles the architecture-beta layout of a cyclic
+%% graph, so architecture.png is drawn to this source by hand, with the
+%% icons mermaid renders for it.
+
+architecture-beta
+    service smc(internet)[SMC and admin]
+    junction smcleft
+    junction smcright
+    service net(internet)[internet]
+
+    group project(gcp:virtual-private-cloud)[GCP project]
+
+    group external(gcp:cloud-network)[external VPC wan] in project
+    service ip(gcp:cloud-external-ip-addresses)[reserved public IP] in external
+    junction ipjunction in project
+
+    service primary(gcp:network-security)[engine primary zone a] in project
+    service secondary(gcp:network-security)[engine secondary zone b] in project
+    junction lanjunction in project
+
+    group lannet(gcp:cloud-network)[protected VPC lan] in project
+    service route(gcp:cloud-routes)[route] in lannet
+    junction routejunction in lannet
+    group subneta(gcp:cloud-network)[server a subnetwork] in lannet
+    service servera(gcp:compute-engine)[server a] in subneta
+    group subnetb(gcp:cloud-network)[server b subnetwork] in lannet
+    service serverb(gcp:compute-engine)[server b] in subnetb
+
+    smc:B -- T:smcleft
+    smcleft:R -- L:smcright
+    smcleft:B -- L:primary
+    smcright:B -- R:secondary
+    net:B -- T:ip
+    ip:B -- T:ipjunction
+    ipjunction:L -- T:primary
+    ipjunction:R -- T:secondary
+    primary:B -- L:lanjunction
+    secondary:B -- R:lanjunction
+    lanjunction:B -- T:route
+    route:B -- T:routejunction
+    routejunction:L -- R:servera
+    routejunction:R -- L:serverb

@@ -17,11 +17,11 @@ locals {
   # More specific than the default route, so this traffic bypasses the
   # engine.
   lan_bypass_routes = concat(
-    var.enable_control_bypass ? [for i, cidr in var.allowed_cidrs : {
-      name           = "to-allowed-${i}"
+    [for i, cidr in var.control_bypass_cidrs : {
+      name           = "bypass-${i}"
       address_prefix = cidr
       next_hop_type  = "Internet"
-    }] : [],
+    }],
     var.enable_bastion ? [{
       name           = "to-bastion"
       address_prefix = var.bastion_subnet_cidr
@@ -285,7 +285,10 @@ module "engine" {
   location            = azurerm_resource_group.this.location
   size                = var.size
 
-  source_image = { version = var.engine_image_version }
+  source_image = {
+    sku     = var.engine_image_sku
+    version = var.engine_image_version
+  }
 
   network_interfaces = [
     {

@@ -48,6 +48,15 @@ variable "size" {
   default     = "Standard_B4ms"
 }
 
+variable "engine_image_sku" {
+  description = <<-EOT
+    Marketplace plan the engines boot from: `ngfw_payg` (pay-as-you-go) or
+    `ngfw_byol` (bring your own license).
+  EOT
+  type        = string
+  default     = "ngfw_payg"
+}
+
 variable "engine_image_version" {
   description = <<-EOT
     Template version the engines boot from, for example `7.5.1`.
@@ -147,9 +156,9 @@ variable "spoke_b_subnet_cidr" {
 
 variable "allowed_cidrs" {
   description = <<-EOT
-    CIDRs allowed to reach the engines' management interfaces and to open
-    SSH to the servers. With the control bypass enabled, their traffic to
-    the administrative networks also keeps flowing when an engine is down.
+    CIDRs allowed to reach the engines' management interfaces and the
+    servers, over any protocol: the SMC, the addresses you administer the
+    engines from, and the networks of any VPN peer site.
   EOT
   type        = list(string)
 }
@@ -166,10 +175,23 @@ variable "server_machine_type" {
   default     = "Standard_B1s"
 }
 
-variable "enable_control_bypass" {
+variable "control_bypass_cidrs" {
   description = <<-EOT
-    Route the servers' traffic to `allowed_cidrs` around the engines, so the
-    servers stay reachable from those ranges when an engine is down.
+    Public CIDRs the servers' traffic reaches around the engines, through
+    the internet next hop, so the servers stay reachable from them when an
+    engine is down.
+  EOT
+  type        = list(string)
+  default     = []
+}
+
+variable "wan_floating_ip" {
+  description = <<-EOT
+    Give the WAN interfaces (nic2) the floating public IPs, which the
+    failover script attaches to the active engine: `vpn`, for a
+    policy-based VPN, and `weba` and `webb`, for DNAT to the servers.
+    `false` gives each engine a public IP of its own, which stays put, for
+    a route-based VPN with a tunnel to each engine, and no DNAT addresses.
   EOT
   type        = bool
   default     = true

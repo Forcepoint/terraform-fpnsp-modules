@@ -322,9 +322,10 @@ has no effect. Replace the instance for the new keys to land.
 
 ## Examples
 
-| Example                                   | What it shows                                        |
-|-------------------------------------------|------------------------------------------------------|
-| [`single-engine`](examples/single-engine) | Management, WAN and LAN legs, from an empty project. |
+| Example                                   | What it shows                                                                                                                                                                    |
+|-------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`single-engine`](examples/single-engine) | Management, WAN and LAN legs, from an empty project.                                                                                                                             |
+| [`standby-ha`](examples/standby-ha)       | A standby HA pair in two zones, with the failover script's Google Cloud side readiness: a floating or per engine WAN public IP, `FP_HA_` metadata, the failover service account. |
 
 ## Support
 

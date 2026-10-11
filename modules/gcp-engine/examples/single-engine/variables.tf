@@ -33,13 +33,13 @@ variable "machine_type" {
 variable "management_cidr" {
   description = "CIDR of the management subnetwork (nic0)."
   type        = string
-  default     = "10.0.0.0/24"
+  default     = "10.20.0.0/24"
 }
 
 variable "wan_cidr" {
   description = "CIDR of the WAN subnetwork (nic2)."
   type        = string
-  default     = "10.0.100.0/24"
+  default     = "10.20.100.0/24"
 }
 
 variable "lan_cidr" {
@@ -47,7 +47,7 @@ variable "lan_cidr" {
     CIDR of the LAN subnetwork (nic1), where protected workloads live.
   EOT
   type        = string
-  default     = "10.0.1.0/24"
+  default     = "10.20.1.0/24"
 }
 
 variable "allowed_cidrs" {

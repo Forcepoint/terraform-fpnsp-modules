@@ -19,6 +19,7 @@ plan.out
 # Initial contact data and keys
 *.cfg
 !.*.cfg
+*.zip
 engine.cfg
 *.pem
 *.key

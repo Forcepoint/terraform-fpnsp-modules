@@ -16,10 +16,8 @@
 
 resource_group_name = "example-rg"
 
-# Sources allowed to reach the engines' management interfaces and to open
-# SSH to the servers. With the control bypass enabled, their traffic to
-# these ranges also keeps flowing when an engine is down. Keep the list
-# tight.
+# Sources allowed to reach the engines' management interfaces and the
+# servers, over any protocol. Keep the list tight.
 allowed_cidrs = [
   "198.51.100.10/32", # SMC
   "198.51.100.20/32", # admin workstation
@@ -56,6 +54,10 @@ ssh_public_keys = [
 # See the template's marketplace listing for the sizes it supports.
 # size = "Standard_B4ms"
 
+# Pay-as-you-go by default. Uncomment to bring your own license instead;
+# accept the ngfw_byol plan's terms first, see the README.
+# engine_image_sku = "ngfw_byol"
+
 # engine_image_version = "7.3.5"
 
 # admin_username = "azure"
@@ -77,9 +79,15 @@ ssh_public_keys = [
 # spoke_a_subnet_cidr = "10.1.0.0/24"
 # spoke_b_subnet_cidr = "10.1.1.0/24"
 
-# Bypass the engines for the servers' traffic to the allowed CIDRs, so the
-# servers stay reachable from there when an engine is down. On by default.
-# enable_control_bypass = false
+# Bypass the engines for the servers' traffic to these ranges, so the
+# servers stay reachable from there when an engine is down.
+# control_bypass_cidrs = ["198.51.100.20/32"]
+
+# Floating public IPs for the WAN interfaces, moved to the active engine:
+# vpn, for a policy-based VPN, and weba and webb, for DNAT. false gives each
+# engine its own public IP, for a route-based VPN with a tunnel to each
+# engine, and no DNAT addresses.
+# wan_floating_ip = false
 
 # The failover identity and its resource-group-scoped role.
 # enable_ha_identity = false

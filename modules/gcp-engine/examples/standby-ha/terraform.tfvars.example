@@ -1,0 +1,92 @@
+# Example values: a standby HA pair of engines and two protected servers,
+# networks created.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# terraform.tfvars is gitignored; this file is committed. Keep secrets out.
+#
+# tfvars take literal values only, so file() and jsonencode() fail here. A
+# heredoc is a literal and works. Pass secrets and per-run values in instead:
+#
+#   terraform apply \
+#     -var "initial_contact_primary=$(cat engine-primary.cfg)" \
+#     -var "initial_contact_secondary=$(cat engine-secondary.cfg)"
+
+# --- Required ---
+
+# The project ID, not its number.
+project_id = "my-project"
+
+# Must carry the MULTI_IP_SUBNET guest OS feature, or the engines forward
+# nothing.
+image = "projects/my-project/global/images/engine-7-6-0"
+
+# Sources allowed to reach the engines' management interfaces. Every
+# protocol and port is open from these ranges, so keep the list tight. The
+# servers are reached over IAP, not from these ranges.
+allowed_cidrs = [
+  "198.51.100.10/32", # SMC
+  "198.51.100.20/32", # admin workstation
+]
+
+# Public keys in OpenSSH format, installed for gencloud on the engines and
+# for server_user on the servers.
+ssh_public_keys = [
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... me@example",
+]
+
+# Initial contact data, one document per engine: an engine.cfg exported
+# from the SMC, or a cloud contact JSON document. Prefer -var.
+# initial_contact_primary   = <<-EOT
+#   stonegate/system/hostname string example-primary
+#   ...
+# EOT
+# initial_contact_secondary = <<-EOT
+#   stonegate/system/hostname string example-secondary
+#   ...
+# EOT
+
+# --- Optional ---
+
+# Name prefix, at most 24 characters; the engines are <name>-primary and
+# <name>-secondary.
+# name = "example"
+
+# machine_type = "n2-standard-4"
+
+# The pair spans two zones of one region. The networks and the servers are
+# created in the primary's region.
+# zone_primary   = "europe-north1-a"
+# zone_secondary = "europe-north1-b"
+
+# One network per engine interface. The engines pin hosts 10 and 11 of
+# each subnetwork, so each must be /28 or larger.
+# management_cidr = "10.20.0.0/24"  # nic0
+# lan_cidr        = "10.20.1.0/24"  # nic1
+# wan_cidr        = "10.20.100.0/24" # nic2
+
+# The servers' subnetworks, in the LAN network: one per server, one shared
+# route.
+# server_a_cidr = "10.20.2.0/24"
+# server_b_cidr = "10.20.3.0/24"
+
+# Targeted by the firewall rules.
+# network_tag = "engine"
+
+# Selects which workloads route through the engines. The engines must not
+# carry it.
+# protected_network_tag = "protected"
+
+# One public IP for the WAN interfaces, moved to the active engine, for a
+# policy-based VPN. false gives each engine its own, for a route-based VPN
+# with a tunnel to each engine.
+# wan_floating_ip = false
+
+# The failover service account and its project-scoped role.
+# enable_ha_identity = false
+
+# The protected servers. Any Linux image will do; they have no public
+# address, reach them over IAP.
+# server_image        = "debian-cloud/debian-12"
+# server_machine_type = "e2-small"
+# server_user         = "admin"

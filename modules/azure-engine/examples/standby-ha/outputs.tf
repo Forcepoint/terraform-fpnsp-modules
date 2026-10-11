@@ -41,16 +41,27 @@ output "management_public_ips" {
 }
 
 output "reserved_public_ips" {
-  description = "Public IPv4 address of each reserved public IP, keyed `vpn`, `weba` and `webb`."
+  description = "Public IPv4 address of each reserved public IP, keyed `vpn`, `weba` and `webb` when `wan_floating_ip` is set."
   value = {
     for key, pip in azurerm_public_ip.ha : key => pip.ip_address
   }
 }
 
 output "reserved_public_ip_ids" {
-  description = "Resource ID of each reserved public IP, keyed `vpn`, `weba` and `webb`."
+  description = "Resource ID of each reserved public IP, keyed `vpn`, `weba` and `webb` when `wan_floating_ip` is set."
   value = {
     for key, pip in azurerm_public_ip.ha : key => pip.id
+  }
+}
+
+output "wan_public_ips" {
+  description = <<-EOT
+    Public IPv4 address of each engine's WAN interface, keyed `primary` and
+    `secondary`, when `wan_floating_ip` is off.
+  EOT
+  value = var.wan_floating_ip ? null : {
+    primary   = module.primary.public_ips["nic2"]
+    secondary = module.secondary.public_ips["nic2"]
   }
 }
 

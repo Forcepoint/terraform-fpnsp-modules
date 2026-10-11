@@ -59,28 +59,28 @@ run "the_protected_route_points_at_the_lan_interface" {
   }
 }
 
-run "the_allowed_cidrs_bypass_the_engine" {
+run "the_control_bypass_cidrs_bypass_the_engine" {
   command = plan
+
+  variables {
+    control_bypass_cidrs = ["198.51.100.20/32"]
+  }
 
   # Without these routes the workloads' replies to the administrative
   # networks would follow the default route through the engine, and the
   # workloads would be unreachable from there when the engine is down.
   assert {
-    condition     = alltrue([for cidr in var.allowed_cidrs : contains([for route in azurerm_route_table.lan.route : route.address_prefix if route.next_hop_type == "Internet"], cidr)])
-    error_message = "Each allowed CIDR needs its own bypass route to the internet next hop."
+    condition     = [for route in azurerm_route_table.lan.route : route.address_prefix if route.next_hop_type == "Internet"] == ["198.51.100.20/32"]
+    error_message = "Only the control bypass CIDRs may go around the engine."
   }
 }
 
-run "the_control_bypass_is_optional" {
+run "the_control_bypass_is_off_by_default" {
   command = plan
-
-  variables {
-    enable_control_bypass = false
-  }
 
   assert {
     condition     = length([for route in azurerm_route_table.lan.route : route if route.next_hop_type == "Internet"]) == 0
-    error_message = "With the control bypass off, no route may go around the engine."
+    error_message = "Without control bypass CIDRs, no route may go around the engine."
   }
 }
 
@@ -95,8 +95,8 @@ run "the_bastion_subnet_keeps_a_direct_route_when_the_engine_is_down" {
   # would follow the default route through the engine, and Bastion would
   # die with the engine.
   assert {
-    condition     = length(azurerm_route_table.lan.route) == 2 + length(var.allowed_cidrs)
-    error_message = "The LAN route table must carry only the default route and the bypass routes."
+    condition     = length(azurerm_route_table.lan.route) == 2
+    error_message = "The LAN route table must carry only the default route and the Bastion route."
   }
 
   assert {
@@ -221,6 +221,12 @@ run "the_protected_server_sits_in_the_lan_subnet" {
 run "the_engine_uses_the_template" {
   command = plan
 
+  # Set rather than defaulted: terraform test also reads a local
+  # terraform.tfvars, which may choose the BYOL plan.
+  variables {
+    engine_image_sku = "ngfw_payg"
+  }
+
   assert {
     condition     = module.engine.instance.plan[0].publisher == "forcepoint-llc"
     error_message = "The engine must boot from the Forcepoint marketplace template."
@@ -229,6 +235,29 @@ run "the_engine_uses_the_template" {
   assert {
     condition     = module.engine.instance.source_image_reference[0].version == var.engine_image_version
     error_message = "The pinned template version must reach the engine."
+  }
+
+  assert {
+    condition     = module.engine.instance.plan[0].name == "ngfw_payg"
+    error_message = "The pay-as-you-go plan must reach the engine."
+  }
+}
+
+run "the_byol_plan_reaches_the_engine" {
+  command = plan
+
+  variables {
+    engine_image_sku = "ngfw_byol"
+  }
+
+  assert {
+    condition     = module.engine.instance.plan[0].name == "ngfw_byol"
+    error_message = "The chosen plan must reach the engine's plan."
+  }
+
+  assert {
+    condition     = module.engine.instance.source_image_reference[0].sku == "ngfw_byol"
+    error_message = "The chosen plan must reach the engine's image."
   }
 }
 

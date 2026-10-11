@@ -60,6 +60,8 @@ az vm image terms accept --publisher forcepoint-llc \
   --offer forcepoint-ngfw --plan ngfw_payg
 ```
 
+With `engine_image_sku = "ngfw_byol"`, accept the `ngfw_byol` plan instead.
+
 ## Inputs
 
 | Name                                  | Description                                                                                                      | Type           | Default           | Required |
@@ -68,7 +70,8 @@ az vm image terms accept --publisher forcepoint-llc \
 | [`allowed_cidrs`](#allowed_cidrs)     | Sources permitted to reach the management and WAN interfaces: the SMC, your administrative networks, VPN peers.  | `list(string)` | n/a               | **yes**  |
 | `bastion_subnet_cidr`                 | CIDR of the `AzureBastionSubnet`; at least a /26.                                                                | `string`       | `"10.0.200.0/26"` | no       |
 | `enable_bastion`                      | Deploy Azure Bastion for access to the protected server; it bills from deployment.                               | `bool`         | `false`           | no       |
-| `enable_control_bypass`               | Bypass the engine for workload traffic to `allowed_cidrs`, so they stay reachable when the engine is down.       | `bool`         | `true`            | no       |
+| `control_bypass_cidrs`                | Public ranges the workloads' traffic reaches around the engine, to keep them reachable.                          | `list(string)` | `[]`              | no       |
+| `engine_image_sku`                    | Marketplace plan the engine boots from: `ngfw_payg` or `ngfw_byol`.                                              | `string`       | `"ngfw_payg"`     | no       |
 | `engine_image_version`                | Template version the engine boots from.                                                                          | `string`       | `"7.3.5"`         | no       |
 | [`initial_contact`](#initial_contact) | Initial contact data for the engine. Sensitive. `null` boots an unconfigured engine.                             | `string`       | `null`            | no       |
 | `lan_cidr`                            | CIDR of the LAN subnet (`nic1`), where protected workloads live.                                                 | `string`       | `"10.0.1.0/24"`   | no       |
@@ -153,10 +156,10 @@ The route table attaches to the LAN subnet only: workloads there send their
 egress through the engine's LAN interface. The management subnet keeps its
 direct path to the SMC: it has no route table.
 
-Each range in `allowed_cidrs` gets a dedicated route, to the internet next
-hop. The workloads' traffic to the administrative networks then bypasses
-the engine, so the workloads stay reachable from there when the engine is
-down; `enable_control_bypass` controls it, on by default.
+Each range in `control_bypass_cidrs` gets a dedicated route, to the
+internet next hop. The workloads' traffic to the administrative networks
+then bypasses the engine, so the workloads stay reachable from there when
+the engine is down.
 
 With Bastion deployed, its subnet gets a dedicated route, to the virtual
 network itself. The Bastion data plane sits in that subnet and sources from
@@ -185,8 +188,8 @@ $(terraform output -raw server_ssh_command)
 
 Its default egress goes through the engine; check from the server that
 outbound traffic leaves via the engine's WAN interface. SSH to it from the
-`allowed_cidrs` does not need the engine up: the bypass routes keep the
-server reachable from there when the engine is down.
+`control_bypass_cidrs` does not need the engine up: the bypass routes keep
+the server reachable from there when the engine is down.
 
 For access that does not depend on your own address, set
 `enable_bastion = true`: the example deploys Azure Bastion, which brokers SSH

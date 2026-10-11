@@ -60,9 +60,9 @@ The engine image is imported first; the gcloud command is in the
 | [`allowed_cidrs`](#allowed_cidrs)     | Sources permitted to reach the management and WAN interfaces: the SMC, your administrative networks, VPN peers. | `list(string)` | n/a                        | **yes**  |
 | [`image`](#image)                     | Self-link or name of the engine image.                                                                          | `string`       | n/a                        | **yes**  |
 | [`initial_contact`](#initial_contact) | Initial contact data for the engine. Sensitive. `null` boots an unconfigured engine.                            | `string`       | `null`                     | no       |
-| `lan_cidr`                            | CIDR of the LAN subnetwork (`nic1`), where protected workloads live.                                            | `string`       | `"10.0.1.0/24"`            | no       |
+| `lan_cidr`                            | CIDR of the LAN subnetwork (`nic1`), where protected workloads live.                                            | `string`       | `"10.20.1.0/24"`           | no       |
 | `machine_type`                        | Machine type for the engine. GCP requires at least one vCPU per interface.                                      | `string`       | `"n2-standard-4"`          | no       |
-| `management_cidr`                     | CIDR of the management subnetwork (`nic0`).                                                                     | `string`       | `"10.0.0.0/24"`            | no       |
+| `management_cidr`                     | CIDR of the management subnetwork (`nic0`).                                                                     | `string`       | `"10.20.0.0/24"`           | no       |
 | `name`                                | Name of the engine instance, and prefix for every other resource.                                               | `string`       | `"example"`                | no       |
 | `network_tag`                         | Network tag on the engine. Targeted by the VPC firewall rules.                                                  | `string`       | `"engine"`                 | no       |
 | `project_id`                          | Project to deploy into.                                                                                         | `string`       | n/a                        | **yes**  |
@@ -71,7 +71,7 @@ The engine image is imported first; the gcloud command is in the
 | `server_machine_type`                 | Machine type for the protected test server.                                                                     | `string`       | `"e2-small"`               | no       |
 | `server_user`                         | Login the `ssh_public_keys` are installed for on the test server.                                               | `string`       | `"admin"`                  | no       |
 | `ssh_public_keys`                     | Public keys in OpenSSH format, installed for `gencloud` on the engine and for `server_user` on the test server. | `list(string)` | `[]`                       | no       |
-| `wan_cidr`                            | CIDR of the WAN subnetwork (`nic2`).                                                                            | `string`       | `"10.0.100.0/24"`          | no       |
+| `wan_cidr`                            | CIDR of the WAN subnetwork (`nic2`).                                                                            | `string`       | `"10.20.100.0/24"`         | no       |
 | `zone`                                | Zone to deploy into. The three subnetworks are created in its region.                                           | `string`       | `"europe-north1-a"`        | no       |
 
 ### `initial_contact`
